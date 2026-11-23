@@ -706,6 +706,34 @@
   .bp-vid-sec { display: grid; gap: 0.6rem; width: 100%; justify-items: start; }
   .bp-vid-sec .gb-hint { margin: 0; }
   #bp-vid-note.warn { color: #9a3b00; }
+  /* ===== Phones and tablets (the desktop layout above stays exactly as it is) ===== */
+  .banner.portrait-cover .banner-stage { min-height: 0; }
+  .banner.portrait-cover .banner-down { display: none; }
+  /* respect the notch / rounded corners when a phone is held sideways (on desktop these are 0, so nothing changes) */
+  .wrap { padding-left: max(clamp(1rem, 3vw, 2.5rem), env(safe-area-inset-left, 0px)); padding-right: max(clamp(1rem, 3vw, 2.5rem), env(safe-area-inset-right, 0px)); }
+  .banner { margin-left: calc(-1 * max(clamp(1rem, 3vw, 2.5rem), env(safe-area-inset-left, 0px))); margin-right: calc(-1 * max(clamp(1rem, 3vw, 2.5rem), env(safe-area-inset-right, 0px))); }
+  /* a smaller logo so the header doesn't eat the screen */
+  @media (max-width: 1199px) and (pointer: coarse) { .logo img { height: min(var(--logo-h), 60px); } }
+  @media (min-width: 560px) and (max-width: 640px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 640px) {
+    .logo img { height: min(var(--logo-h), 46px); }
+    header { padding-block: 0.6rem; }
+    .project-title, .next strong { overflow-wrap: anywhere; }
+  }
+  /* project pictures use the full width on phones and upright tablets (the desktop width setting would make them small there) */
+  @media (max-width: 640px), (max-width: 900px) and (orientation: portrait) { .shot .imgwrap, .shot .photo-grid { width: 100% !important; } }
+  @media (max-height: 500px) and (orientation: landscape) {
+    .logo img { height: min(var(--logo-h), 40px); }
+    header { padding-block: 0.45rem; }
+  }
+  /* comfortable touch targets (44 px) without moving anything visually */
+  @media (pointer: coarse) {
+    header nav a { padding: 0.75rem 0.3rem; margin: -0.75rem -0.3rem; }
+    .contact-toggle { padding-block: 0.6rem; margin-block: -0.6rem; }
+    .back, footer a:not(.social a) { display: inline-block; padding-block: 0.7rem; margin-block: -0.7rem; }
+    .social a { min-width: 44px; min-height: 44px; }
+    a, button { touch-action: manipulation; -webkit-tap-highlight-color: rgba(0, 0, 0, 0.06); }
+  }
 </style>
 </head>
 <body>
@@ -1142,7 +1170,28 @@
     BANNER.cx = g.w <= g.W ? 0.5 : Math.max(g.W / 2 / g.w, Math.min(1 - g.W / 2 / g.w, f[0]));
     BANNER.cy = g.h <= g.H ? 0.5 : Math.max(g.H / 2 / g.h, Math.min(1 - g.H / 2 / g.h, f[1]));
   }
+  // On tall, narrow screens (phones; tablets held upright) the cover video's wide white margins would leave the artwork tiny
+  // between big empty bands. There, the frame is cropped to where the artwork actually is (measured from every frame of the
+  // videos: x 24%-78%, y 9%-91%, plus a small margin) and the banner takes exactly that height. Nothing is stretched.
+  var COVER_WIN = { cx: 0.508, w: 0.604, y0: 0.062, h: 0.878 };
+  function portraitCover() { var vw = innerWidth, vh = innerHeight; return vw <= 1199 && (vw / vh < 1 || vw <= 640) && !sceneOn(); }
+  function layoutPortraitCover() {
+    var el = $('banner'), st = $('banner-stage'), W = st.clientWidth, setH = null;
+    [$('banner-pic'), $('banner-vid'), $('banner-vid2'), $('banner-vid3')].forEach(function (m) {
+      var iw = m.tagName === 'VIDEO' ? m.videoWidth : m.naturalWidth, ih = m.tagName === 'VIDEO' ? m.videoHeight : m.naturalHeight;
+      if (!iw || !W) return;
+      var w = W / COVER_WIN.w, h = w * ih / iw;
+      m.style.objectFit = 'fill'; m.style.width = w + 'px'; m.style.height = h + 'px';
+      m.style.left = (W / 2 - COVER_WIN.cx * w) + 'px'; m.style.top = (-COVER_WIN.y0 * h) + 'px';
+      if (setH == null && !m.hidden) setH = COVER_WIN.h * h;
+    });
+    if (setH != null) el.style.setProperty('--stage-h', Math.round(setH) + 'px');
+  }
   function layoutBannerPic() {
+    var pc = portraitCover();
+    $('banner').classList.toggle('portrait-cover', pc);
+    if (pc) { layoutPortraitCover(); return; }
+    $('banner').style.removeProperty('--stage-h');
     $('banner-stage').style.setProperty('--sw', $('banner-stage').clientWidth + 'px');
     layoutSceneFrame();
     $('banner-stage').style.setProperty('--scene-k', (BANNER.scene && $('banner-stage').clientWidth < 700) ? (BANNER.scene.mobile || 1) : 1);
